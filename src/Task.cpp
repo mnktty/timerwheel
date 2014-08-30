@@ -10,9 +10,11 @@ namespace {
 }
 
 // the thread function
-void* thread_func(void* arg) {
+void* consume(void* arg) {
     Task* task = static_cast<Task*>(arg);
+    task->active_ = true;
     assert(task && task->active_);
+    
     while(task->active_) {
         ::pthread_mutex_lock(&task->mutex_);
         while (task->queue_.empty()) {
@@ -20,11 +22,11 @@ void* thread_func(void* arg) {
             ::pthread_cond_wait(&task->condition_, &task->mutex_);
             LOG_TRACE("cw");
         }
-    
+
         Message* msg = task->queue_.front();
         task->queue_.pop();
         LOG_TRACE("-");
-    
+        
         ::pthread_cond_signal(&task->condition_);
         ::pthread_mutex_unlock(&task->mutex_);
     
@@ -32,17 +34,17 @@ void* thread_func(void* arg) {
     }
 }
 
-Task::Task() : active_(true) {
-    ::pthread_mutex_init(&mutex_, NULL);
-    ::pthread_cond_init(&condition_, NULL);
+Task::Task() : active_(false) {
+    int status;
 
-    int status = ::pthread_create(&thread_, NULL, thread_func, static_cast<void*>(this));
+    status = ::pthread_mutex_init(&mutex_, NULL);
+    assert(0 == status);
+
+    status = ::pthread_cond_init(&condition_, NULL);
     assert(0 == status);
 }
 
 Task::~Task() {
-    // clear all timers
-    timers_.clear();
 
     // clear all active contexts
     for (TransactionContextTable::iterator it = contexts_.begin(); 
@@ -52,16 +54,24 @@ Task::~Task() {
     }
 
     // clear any pending messages (to be processed)
-    pthread_mutex_lock(&mutex_);
-    while(!queue_.empty())
-        pthread_cond_wait(&condition_, &mutex_);
-    
     while(!queue_.empty()) {
         Message* msg = queue_.front();
         delete msg;
         msg = 0;
         queue_.pop();
     }
+
+    int status;
+    status = ::pthread_cond_destroy(&condition_);
+    assert(0 == status);
+
+    status = ::pthread_mutex_destroy(&mutex_);
+    assert(0 == status);
+}
+
+void Task::start() {
+    int status = ::pthread_create(&thread_, NULL, consume, static_cast<void*>(this));
+    assert(0 == status);
 }
 
 void Task::join() {
@@ -76,25 +86,36 @@ void Task::enqueue(Message* msg) {
         ::pthread_cond_wait(&condition_, &mutex_);
         LOG_TRACE("pw");
     }
+
     queue_.push(msg);
     LOG_TRACE("+");
+
     ::pthread_cond_signal(&condition_);
     ::pthread_mutex_unlock(&mutex_);
 }
 
 void Task::process(Message* msg) {
 
-    if (msg->isRequest())
-        processRequest(msg);
-    else if (msg->isResponse()) 
-        processResponse(msg);
-    else if (msg->isTimer()) 
-        processTimer(msg);
-    else {
-        // finally consume it
-        delete msg;
-        msg = 0;
+    switch(msg->msgType()) {
+    case MSG_REQUEST: processRequest(msg);
+        break;
+        
+    case MSG_RESPONSE: processResponse(msg);
+        break;
+
+    case MSG_TIMER: processTimer(msg);
+        break;
+
+    case MSG_SHUTDOWN: active_ = false;
+        break;
+
+    default:                                 
+        break;
+
     }
+    // finally consume it
+    delete msg;
+    msg = 0;
 }
 
 void Task::processRequest(Message* msg) {

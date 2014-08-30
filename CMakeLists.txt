@@ -37,12 +37,12 @@ SET (CMAKE_EXE_LINKER_FLAGS "-m32 -Wall -L/usr/lib")
 
 # Definitions - common ones first
 # ADD_DEFINITIONS (-DNDEBUG)
+ADD_DEFINITIONS (-D_DEBUG)
 
 # set(UNIT_TEST 1)
 if (UNIT_TEST EQUAL 1)
 # Enable this to run unit tests 
 ADD_DEFINITIONS(-DUNIT_TEST)
-ADD_DEFINITIONS (-D_DEBUG)
 endif ()
 
 # Include paths 

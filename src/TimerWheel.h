@@ -13,7 +13,8 @@ typedef std::map<u32, TransactionContext*> TransactionContextSet;
 
 /**
  * Defines a timer wheel, where timers to expire are put in buckets based on the
- * time to expire from now. */
+ * time to expire from now. TransactionContext pointers are only tracked/stored
+ * and removed - not owned. */
 class TimerWheel {
     /**
      * set of transactions sorted per expiry bucket */
@@ -26,9 +27,8 @@ public:
     TimerWheel();
 
     /**
-     * (intelligently) Add context to the correct bucket, based on
-     * expiry. Assume user does not give expiry greater than MAX_TIMER_BUCKETS*
-     * base_frequency
+     * Add context to the correct bucket based on expiry. Assumes that user does
+     * not give expiry greater than MAX_TIMER_BUCKETS X BASE_FREQUENCY
      *
      * @param[in] ctx the transaction context
      * @param[in] time (in milliseconds) to expire from now
@@ -40,12 +40,8 @@ public:
     void remove_context(TransactionContext* ctx);
 
     /**
-     * Called (by task) when timer message is received */
+     * Called (by task) when timer message is received. */
     void expire_timers();
-
-    /**
-     * Placeholder  */
-    void clear();
 
     friend std::ostream& operator<<(std::ostream& os, const TimerWheel& wheel);
 };

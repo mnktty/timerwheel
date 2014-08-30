@@ -13,41 +13,60 @@ typedef std::map<u32, TransactionContext*> TransactionContextTable;
 
 /**
  * An active object that blocks for tasks and runs to completion (one queue, one
- * thread of execution). For simulation sake, we make a call to async_call()  */
+ * thread of execution). For simulation sake, we make a call to async_call().
+ *
+ * Messages are enqueued to the task. To stop the task, a special message type
+ * called MSG_SHUTDOWN is enqueued. */
 class Task {
 
     volatile bool active_;
 
-    /* protected queue of messages */
+    /**
+     * atomic queue of messages */
     std::queue<Message*> queue_;
     pthread_mutex_t mutex_;
     pthread_cond_t  condition_;
+
+    /**
+     * thread handle */
     pthread_t thread_;
     
-    /* own set of timers */
+    /**
+     * own set of timers */
     TimerWheel timers_;
     
-    /* active contexts */
+    /**
+     * All active contexts.  */
     TransactionContextTable contexts_;
     
-    /* dispatch message processing */
+    /**
+     * Dispatch message processing */
     void process(Message* msg);
-    
+
     void processRequest(Message* msg);
     void processResponse(Message* msg);
     void processTimer(Message* msg);
 
 public:
 
-    /* Task are created active, for the time being */
+    /**
+     * Create task, LWP not yet spawned */
     Task();
+
+    /**
+     * Cleanup */
     ~Task();
 
-    void stop() { active_ = false; }
+    void start();
+
+    /**
+     * Call this to ensure task LWP has completed. @warning Always ensure that a
+     * MSG_SHUTDOWN is sent *before* calling this. Or the caller would wait
+     * indefinitely. */
     void join();
 
     void enqueue(Message* const msg);
-    friend void* thread_func(void* arg);
+    friend void* consume(void* arg);
 
 };
 

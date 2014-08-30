@@ -7,7 +7,7 @@ enum eMessageType {
     MSG_REQUEST,
     MSG_RESPONSE,
     MSG_TIMER,
-    MSG_FINAL
+    MSG_SHUTDOWN                /* sent to stop the task */
 };
 
 
@@ -21,20 +21,12 @@ public:
 
     Message(const u32 token, eMessageType msgType): token_(token), msgType_(msgType) {}
 
-    bool isRequest() const {
-        return MSG_REQUEST == msgType_;
-    }
-    
-    bool isResponse() const {
-        return MSG_RESPONSE == msgType_;
-    }
-
-    bool isTimer() const {
-        return MSG_TIMER == msgType_;
-    }
-
     const u32 token() const {
         return token_;
+    }
+
+    eMessageType msgType() const {
+        return msgType_;
     }
   
 };

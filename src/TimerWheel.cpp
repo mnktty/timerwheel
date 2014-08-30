@@ -47,10 +47,6 @@ void TimerWheel::expire_timers() {
     head_ = ++head_ % MAX_TIMER_BUCKETS;
 }
 
-void TimerWheel::clear() {
-    // placeholder. nothing to do right now
-}
-
 std::ostream& operator<<(std::ostream& os, const TimerWheel& wheel) {
     os << "wheel(head: "  << wheel.head_ << '\n';
     
